@@ -23,11 +23,14 @@ function GithubLoginContent() {
     useEffect(() => {
         const supabase = createClient()
         supabase.auth.getSession().then(({ data }) => {
-            if (data.session && !initialError) {
+            if (data?.session && !initialError) {
                 router.replace(nextPath)
             } else {
                 setIsCheckingSession(false)
             }
+        }).catch((err) => {
+            console.error("Failed to fetch session:", err)
+            setIsCheckingSession(false)
         })
     }, [initialError, nextPath, router])
 
@@ -100,7 +103,8 @@ function GithubLoginContent() {
                                 alt="Pakalon"
                                 width={265}
                                 height={125}
-                                className="h-[125px] w-auto object-contain"
+                                className="object-contain"
+                                style={{ height: '125px', width: 'auto' }}
                                 priority
                             />
                         </div>
@@ -182,7 +186,8 @@ function GithubLoginContent() {
                             alt="Pakalon"
                             width={265}
                             height={125}
-                            className="h-[125px] w-auto object-contain"
+                            className="object-contain"
+                            style={{ height: '125px', width: 'auto' }}
                             priority
                         />
                     </div>

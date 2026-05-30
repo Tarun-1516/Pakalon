@@ -33,7 +33,11 @@ export default function LandingPage() {
     useEffect(() => {
         const supabase = createClient()
         supabase.auth.getSession().then(({ data }) => {
-            setIsSignedIn(!!data.session)
+            setIsSignedIn(!!data?.session)
+            setAuthResolved(true)
+        }).catch((err) => {
+            console.error("Failed to fetch session:", err)
+            setIsSignedIn(false)
             setAuthResolved(true)
         })
         const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -81,7 +85,8 @@ export default function LandingPage() {
                             alt="Pakalon"
                             width={225}
                             height={109}
-                            className="h-[109px] w-auto object-contain"
+                            className="object-contain"
+                            style={{ height: '109px', width: 'auto' }}
                             priority
                         />
                     </div>
@@ -291,6 +296,29 @@ export default function LandingPage() {
                         </div>
                         <div className="flex flex-wrap gap-6">
                             {[{ src: '/memory/mem0.png', name: 'mem0' }].map((tool) => (
+                                <div key={tool.name} className="flex flex-col items-center gap-2 group" title={tool.name}>
+                                    <Image src={tool.src} alt={tool.name} width={73} height={73} className="w-[73px] h-[73px] object-contain" />
+                                    <span className="text-[10px] text-[#b1b4a2] text-center group-hover:text-white transition-colors">{tool.name}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="border-t border-border-dark" />
+
+                    {/* Sandboxing */}
+                    <div className="space-y-8">
+                        <div className="flex items-center gap-4">
+                            <div className="size-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                                <span className="material-symbols-outlined">view_in_ar</span>
+                            </div>
+                            <div>
+                                <h2 className="text-2xl font-bold text-white">Sandboxing</h2>
+                                <p className="text-sm text-[#b1b4a2]">Sandboxing for running and testing the code in a safer environment</p>
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap gap-6">
+                            {[{ src: '/sandbox/aio-icon.png', name: 'AIO sandboxing' }].map((tool) => (
                                 <div key={tool.name} className="flex flex-col items-center gap-2 group" title={tool.name}>
                                     <Image src={tool.src} alt={tool.name} width={73} height={73} className="w-[73px] h-[73px] object-contain" />
                                     <span className="text-[10px] text-[#b1b4a2] text-center group-hover:text-white transition-colors">{tool.name}</span>

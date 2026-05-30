@@ -3,6 +3,22 @@ import { Space_Grotesk } from 'next/font/google'
 import './globals.css'
 import { Toaster } from 'sonner'
 
+if (typeof window !== 'undefined') {
+    window.addEventListener('unhandledrejection', (event) => {
+        const msg = String(event.reason?.message || event.reason || '');
+        const name = String(event.reason?.name || '');
+        if (
+            msg.toLowerCase().includes('failed to fetch') ||
+            msg.toLowerCase().includes('fetch') ||
+            name === 'AbortError' ||
+            msg.toLowerCase().includes('lock')
+        ) {
+            event.preventDefault();
+            console.warn('Suppressed unhandled promise rejection:', event.reason);
+        }
+    });
+}
+
 const spaceGrotesk = Space_Grotesk({
     subsets: ['latin'],
     weight: ['300', '400', '500', '600', '700'],

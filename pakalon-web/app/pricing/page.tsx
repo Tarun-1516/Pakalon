@@ -14,7 +14,11 @@ export default function PricingPage() {
         const supabase = createClient()
 
         supabase.auth.getSession().then(({ data }) => {
-            setIsAuthenticated(Boolean(data.session))
+            setIsAuthenticated(Boolean(data?.session))
+            setIsCheckingSession(false)
+        }).catch((err) => {
+            console.error("Failed to fetch session:", err)
+            setIsAuthenticated(false)
             setIsCheckingSession(false)
         })
 
