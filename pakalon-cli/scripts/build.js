@@ -8,7 +8,10 @@ const external = ["react-devtools-core", "playwright"];
 function ensureShebang(filePath, runtime, optional = false) {
   const resolvedPath = path.resolve(rootDir, filePath);
   if (!fs.existsSync(resolvedPath)) {
-    if (optional) return;
+    if (optional) {
+      console.log(`[WARN] Shebang skipped (file not found): ${resolvedPath}`);
+      return;
+    }
     console.error(`Cannot add shebang; file does not exist: ${resolvedPath}`);
     process.exit(1);
   }
@@ -26,6 +29,8 @@ async function runBuild(options) {
     process.exit(1);
   }
 
+  console.log(`[BUILD] Starting build:`, JSON.stringify(options, null, 2));
+
   const result = await Bun.build({
     ...options,
     external,
@@ -33,11 +38,32 @@ async function runBuild(options) {
   });
 
   if (!result.success) {
+    console.error(`[BUILD] Build failed!`);
     for (const log of result.logs) {
-      console.error(log.message || String(log));
+      console.error(`  ${log.level}: ${log.message || String(log)}`);
     }
     process.exit(1);
   }
+
+  console.log(`[BUILD] Build succeeded`);
+
+  // Verify output file exists
+  const outPath = options.outfile || path.join(options.outdir || "dist", path.basename(options.entrypoints[0]));
+  const resolvedOut = path.resolve(rootDir, outPath);
+  if (!fs.existsSync(resolvedOut)) {
+    console.error(`[BUILD] Output file not found after build: ${resolvedOut}`);
+    // List what's in dist/
+    const distDir = path.resolve(rootDir, "dist");
+    if (fs.existsSync(distDir)) {
+      console.log(`[BUILD] dist/ contents:`, fs.readdirSync(distDir));
+    } else {
+      console.error(`[BUILD] dist/ directory does not exist`);
+    }
+    process.exit(1);
+  }
+
+  const stats = fs.statSync(resolvedOut);
+  console.log(`[BUILD] Output: ${outPath} (${stats.size} bytes)`);
 }
 
 async function buildCli() {
@@ -46,7 +72,7 @@ async function buildCli() {
     target: "bun",
     outfile: "dist/cli.js",
   });
-  ensureShebang("dist/cli.js", "bun");
+  ensureShebang("dist/cli.js", "bun", true);
 }
 
 async function buildLegacyCli() {
@@ -55,7 +81,7 @@ async function buildLegacyCli() {
     target: "node",
     outfile: "dist/legacy-cli.js",
   });
-  ensureShebang("dist/legacy-cli.js", "node");
+  ensureShebang("dist/legacy-cli.js", "node", true);
 }
 
 async function buildApp() {
@@ -68,6 +94,13 @@ async function buildApp() {
 }
 
 (async () => {
+  // Ensure dist directory exists
+  const distDir = path.resolve(rootDir, "dist");
+  if (!fs.existsSync(distDir)) {
+    fs.mkdirSync(distDir, { recursive: true });
+    console.log(`[BUILD] Created dist/ directory`);
+  }
+
   switch (mode) {
     case "all":
       await buildCli();
@@ -87,6 +120,6 @@ async function buildApp() {
       process.exit(2);
   }
 })().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error));
+  console.error(`[BUILD] Fatal error:`, error instanceof Error ? error.message : String(error));
   process.exit(1);
 });
