@@ -3859,6 +3859,8 @@ export const taskStopTool = tool({
 // ---------------------------------------------------------------------------
 
 import { rgTool, viewTool, setLocationTool } from "@/ai/copilot-tools.js";
+import { TaskGraphTool as taskGraphTool } from "@/tools/task-tools/task-graph-tool.js";
+import { TaskComposeTool as taskComposeTool, TaskChainAdvanceTool as taskChainAdvanceTool } from "@/tools/task-tools/task-compose-tool.js";
 
 // ---------------------------------------------------------------------------
 // Tools Export
@@ -3999,6 +4001,11 @@ export const allTools: ToolSet = {
   taskList: taskListTool,
   taskOutput: taskOutputTool,
   taskStop: taskStopTool,
+
+  // Task graph and composition tools
+  taskGraph: taskGraphTool,
+  taskCompose: taskComposeTool,
+  taskChainAdvance: taskChainAdvanceTool,
 
   // Skill & trust tools
   skill: skillTool,

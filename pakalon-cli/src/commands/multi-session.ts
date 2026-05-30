@@ -1,5 +1,11 @@
 /**
  * /multi-session command — manage multiple concurrent sessions.
+ * 
+ * Features:
+ * - List all sessions with loading indicators
+ * - Switch between sessions
+ * - Create new sessions
+ * - Show running status and input-needed state
  */
 import type { CommandContext, CommandResult } from "./types.js";
 import { useStore } from "@/store/index.js";
@@ -18,6 +24,8 @@ export interface MultiSessionInfo {
   message_count?: number;
   isRunning?: boolean;
   needsInput?: boolean;
+  loading?: boolean;
+  error?: string;
 }
 
 function getCommandElapsed(sessionId: string, startedAt?: number | null): number | undefined {
@@ -55,7 +63,7 @@ export function formatMultiSessionList(sessions: MultiSessionInfo[]): string {
   const lines = [
     "\n── Multi-Session Manager ─────────────────────────────",
     "",
-    "Currently running sessions:",
+    "Sessions:",
     "",
   ];
 
@@ -67,15 +75,25 @@ export function formatMultiSessionList(sessions: MultiSessionInfo[]): string {
   }
 
   for (const session of sessions) {
-    const status = session.isRunning ? "[~]" : "[o]";
-    const indicator = session.isRunning
-      ? session.needsInput ? " [input needed]" : " [running]"
-      : "";
+    const status = session.loading 
+      ? "[...]" 
+      : session.isRunning 
+        ? session.needsInput ? "[?!]" : "[~~]" 
+        : "[ok]";
+    
+    const indicator = session.loading
+      ? " [loading...]"
+      : session.isRunning
+        ? session.needsInput ? " [input needed]" : " [running]"
+        : session.error ? ` [error: ${session.error}]` : "";
+    
     const elapsed = getCommandElapsed(session.id, store.sessionStartedAt);
     const date = new Date(session.updated_at).toLocaleTimeString();
     const title = session.title || "Untitled";
-    lines.push(`  ${status} ${session.id.slice(0, 8)}... ${title} ${indicator}`);
-    lines.push(`     Updated: ${date} | Model: ${session.model_id ?? "default"}${elapsed ? ` | Elapsed: ${formatDuration(elapsed)}` : ""}`);
+    const messageCount = session.message_count ?? 0;
+    
+    lines.push(`  ${status} ${session.id.slice(0, 8)}... ${title}${indicator}`);
+    lines.push(`     Updated: ${date} | Messages: ${messageCount} | Model: ${session.model_id ?? "default"}${elapsed ? ` | Elapsed: ${formatDuration(elapsed)}` : ""}`);
     lines.push("");
   }
 

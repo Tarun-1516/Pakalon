@@ -702,6 +702,535 @@ export async function compactContext(
 }
 
 // ---------------------------------------------------------------------------
+// Snip-Compact — remove repeated command patterns from history (T-A37a)
+// ---------------------------------------------------------------------------
+
+/** Pattern signature for detecting repeated tool/command invocations */
+interface SnipSignature {
+  toolName: string;
+  inputHash: string;
+  count: number;
+  firstIndex: number;
+  lastIndex: number;
+}
+
+/** Cheap hash of tool input for dedup — first 200 chars of sorted key/value pairs */
+function cheapInputHash(input: unknown): string {
+  if (!input || typeof input !== "object") return String(input).slice(0, 200);
+  try {
+    const sorted = Object.entries(input as Record<string, unknown>)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}=${String(v).slice(0, 80)}`)
+      .join("&");
+    return sorted.slice(0, 200);
+  } catch {
+    return "unhashable";
+  }
+}
+
+/**
+ * Scan messages for repeated tool-use patterns and collapse duplicates.
+ * Keeps the first and last occurrence of each pattern, replacing middle ones
+ * with a single summary marker. Frees tokens by removing verbose repeated
+ * tool results (e.g., repeated `git status` or `ls` calls).
+ *
+ * Returns the snipped messages and count of tokens freed.
+ */
+export function snipCompact(messages: CoreMessage[]): {
+  messages: CoreMessage[];
+  snippedCount: number;
+  tokensFreed: number;
+} {
+  if (messages.length < 5) {
+    return { messages, snippedCount: 0, tokensFreed: 0 };
+  }
+
+  // Build signatures for tool-use messages
+  const toolUses = new Map<string, SnipSignature>();
+
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i];
+    if (!m) continue;
+    const content = m.content;
+    if (typeof content !== "object" || !Array.isArray(content)) continue;
+
+    for (const part of content) {
+      if (!part || typeof part !== "object") continue;
+      const p = part as Record<string, unknown>;
+      if (p.type !== "tool_use" || typeof p.name !== "string") continue;
+
+      const key = `${p.name}::${cheapInputHash(p.input)}`;
+      const existing = toolUses.get(key);
+      if (existing) {
+        existing.count++;
+        existing.lastIndex = i;
+      } else {
+        toolUses.set(key, {
+          toolName: p.name,
+          inputHash: cheapInputHash(p.input),
+          count: 1,
+          firstIndex: i,
+          lastIndex: i,
+        });
+      }
+    }
+  }
+
+  // Find patterns with 3+ repetitions
+  const repeatedPatterns = [...toolUses.values()].filter((s) => s.count >= 3);
+
+  if (repeatedPatterns.length === 0) {
+    return { messages, snippedCount: 0, tokensFreed: 0 };
+  }
+
+  // Build set of message indices to snip (keep first and last, snip middle)
+  const indicesToSnip = new Set<number>();
+  for (const sig of repeatedPatterns) {
+    // Collect all indices for this pattern
+    const patternIndices: number[] = [];
+    for (let i = sig.firstIndex; i <= sig.lastIndex; i++) {
+      const m = messages[i];
+      if (!m) continue;
+      const content = m.content;
+      if (typeof content !== "object" || !Array.isArray(content)) continue;
+      for (const part of content) {
+        if (!part || typeof part !== "object") continue;
+        const p = part as Record<string, unknown>;
+        if (p.type === "tool_use" && p.name === sig.toolName) {
+          const key = `${p.name}::${cheapInputHash(p.input)}`;
+          if (key === `${sig.toolName}::${sig.inputHash}`) {
+            patternIndices.push(i);
+          }
+        }
+      }
+    }
+
+    // Keep first and last, snip everything in between
+    if (patternIndices.length > 2) {
+      for (let j = 1; j < patternIndices.length - 1; j++) {
+        indicesToSnip.add(patternIndices[j]!);
+      }
+    }
+  }
+
+  if (indicesToSnip.size === 0) {
+    return { messages, snippedCount: 0, tokensFreed: 0 };
+  }
+
+  // Replace snipped messages with compact markers
+  const originalTokens = estimateMessagesTokens(messages);
+  const result: CoreMessage[] = messages.map((m, i) => {
+    if (!indicesToSnip.has(i)) return m;
+    // Replace with a compact marker message
+    return {
+      role: "assistant",
+      content: `[Snipped: repeated tool call — see first occurrence]`,
+    } as CoreMessage;
+  });
+
+  const newTokens = estimateMessagesTokens(result);
+
+  logger.info("[Context] Snip-compact completed", {
+    patternsFound: repeatedPatterns.length,
+    messagesSnipped: indicesToSnip.size,
+    tokensFreed: originalTokens - newTokens,
+  });
+
+  return {
+    messages: result,
+    snippedCount: indicesToSnip.size,
+    tokensFreed: originalTokens - newTokens,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Reactive-Compact — retry after compaction on prompt-too-long errors (T-A37b)
+// ---------------------------------------------------------------------------
+
+export class ContextOverflowError extends Error {
+  public readonly statusCode?: number;
+  public readonly originalError?: unknown;
+
+  constructor(message: string, statusCode?: number, originalError?: unknown) {
+    super(message);
+    this.name = "ContextOverflowError";
+    this.statusCode = statusCode;
+    this.originalError = originalError;
+  }
+}
+
+/** Check if an error indicates context overflow / prompt too long */
+export function isContextOverflowError(error: unknown): boolean {
+  if (error instanceof ContextOverflowError) return true;
+  if (error instanceof Error) {
+    const msg = error.message.toLowerCase();
+    // 413 Payload Too Large, prompt too long, context length exceeded, max context
+    return (
+      msg.includes("prompt too long") ||
+      msg.includes("context length exceeded") ||
+      msg.includes("context_length") ||
+      msg.includes("maximum context") ||
+      msg.includes("too many tokens") ||
+      msg.includes("413") ||
+      msg.includes("payload too large") ||
+      msg.includes("request too large")
+    );
+  }
+  if (typeof error === "object" && error !== null) {
+    const obj = error as Record<string, unknown>;
+    const status = obj.status ?? obj.statusCode ?? obj.code;
+    if (status === 413 || status === "413") return true;
+  }
+  return false;
+}
+
+/**
+ * Attempt reactive compaction when a context overflow error occurs.
+ *
+ * Strategy:
+ * 1. First try: snip-compact (fast, no LLM call)
+ * 2. Second try: LLM-based compressContext
+ * 3. Third try: aggressive trimToContextWindow to 60% of max
+ *
+ * Returns the compacted messages or throws if recovery fails.
+ */
+export async function tryReactiveCompact(
+  messages: CoreMessage[],
+  maxTokens: number,
+  summarizerFn: (text: string) => Promise<string>,
+  attempt = 1
+): Promise<CompressionResult> {
+  const maxAttempts = 3;
+
+  if (attempt > maxAttempts) {
+    // Last resort: hard trim to 60%
+    const hardTrimmed = trimToContextWindow(messages, Math.floor(maxTokens * 0.6), 4);
+    const savedTokens = estimateMessagesTokens(messages) - estimateMessagesTokens(hardTrimmed);
+    logger.warn("[Context] Reactive compact: hard trim fallback", { attempt, savedTokens });
+    contextEvents.emit("context_stats", getContextStats(hardTrimmed, maxTokens));
+    return { messages: hardTrimmed, compressed: true, savedTokens };
+  }
+
+  logger.info("[Context] Reactive compact attempt", { attempt });
+
+  // Attempt 1: Snip-compact (fast, no LLM cost)
+  if (attempt === 1) {
+    const { messages: snipped, tokensFreed } = snipCompact(messages);
+    if (tokensFreed > 0) {
+      const stats = getContextStats(snipped, maxTokens);
+      if (stats.percent < 95) {
+        logger.info("[Context] Reactive compact: snip succeeded", { tokensFreed });
+        contextEvents.emit("context_stats", stats);
+        return { messages: snipped, compressed: true, savedTokens: tokensFreed };
+      }
+      // Snip wasn't enough, escalate to LLM compression with snipped messages
+      return tryReactiveCompact(snipped, maxTokens, summarizerFn, 2);
+    }
+    return tryReactiveCompact(messages, maxTokens, summarizerFn, 2);
+  }
+
+  // Attempt 2: LLM-based compressContext
+  if (attempt === 2) {
+    const result = await compressContext(messages, maxTokens, summarizerFn, 4);
+    if (result.compressed && result.savedTokens > 0) {
+      const stats = getContextStats(result.messages, maxTokens);
+      if (stats.percent < 95) {
+        logger.info("[Context] Reactive compact: LLM compression succeeded", {
+          savedTokens: result.savedTokens,
+        });
+        return result;
+      }
+      return tryReactiveCompact(result.messages, maxTokens, summarizerFn, 3);
+    }
+    return tryReactiveCompact(messages, maxTokens, summarizerFn, 3);
+  }
+
+  // Attempt 3: Should not reach here due to maxAttempts check above,
+  // but handle gracefully
+  return tryReactiveCompact(messages, maxTokens, summarizerFn, attempt + 1);
+}
+
+// ---------------------------------------------------------------------------
+// Context Collapse — progressive collapse with commit-log staging (T-A37c)
+// ---------------------------------------------------------------------------
+
+export type CollapseStage =
+  | "none"           // No collapse applied
+  | "light"          // Collapse tool results to summaries
+  | "medium"         // Collapse + compress tool_use inputs
+  | "heavy"          // Collapse + replace old assistant messages with summaries
+  | "critical";      // Keep only system + last 2 exchanges
+
+export interface CollapseResult {
+  messages: CoreMessage[];
+  stage: CollapseStage;
+  tokensFreed: number;
+}
+
+const COLLAPSE_THRESHOLDS: Record<CollapseStage, number> = {
+  none: 0,
+  light: 0.88,    // > 88% → light collapse
+  medium: 0.92,   // > 92% → medium collapse
+  heavy: 0.96,    // > 96% → heavy collapse
+  critical: 0.99, // > 99% → critical collapse
+};
+
+/**
+ * Determine the collapse stage based on current context usage.
+ */
+export function getCollapseStage(percentUsed: number): CollapseStage {
+  if (percentUsed >= COLLAPSE_THRESHOLDS.critical * 100) return "critical";
+  if (percentUsed >= COLLAPSE_THRESHOLDS.heavy * 100) return "heavy";
+  if (percentUsed >= COLLAPSE_THRESHOLDS.medium * 100) return "medium";
+  if (percentUsed >= COLLAPSE_THRESHOLDS.light * 100) return "light";
+  return "none";
+}
+
+/**
+ * Collapse tool result messages to short summaries.
+ * Replaces verbose tool output with a one-line summary.
+ */
+function collapseToolResults(messages: CoreMessage[]): CoreMessage[] {
+  return messages.map((m) => {
+    const content = m.content;
+    if (typeof content !== "object" || !Array.isArray(content)) return m;
+
+    const collapsed = content.map((part) => {
+      if (!part || typeof part !== "object") return part;
+      const p = part as Record<string, unknown>;
+
+      // Collapse tool_result content
+      if (p.type === "tool_result" && typeof p.content === "string" && p.content.length > 500) {
+        const lines = p.content.split("\n").length;
+        const chars = p.content.length;
+        return {
+          ...p,
+          content: `[Tool result collapsed: ${lines} lines, ${chars} chars — first 200 chars]\n${p.content.slice(0, 200)}`,
+        };
+      }
+      return part;
+    });
+
+    return { ...m, content: collapsed } as CoreMessage;
+  });
+}
+
+/**
+ * Collapse tool_use inputs by truncating large inputs.
+ */
+function collapseToolInputs(messages: CoreMessage[]): CoreMessage[] {
+  return messages.map((m) => {
+    const content = m.content;
+    if (typeof content !== "object" || !Array.isArray(content)) return m;
+
+    const collapsed = content.map((part) => {
+      if (!part || typeof part !== "object") return part;
+      const p = part as Record<string, unknown>;
+
+      if (p.type === "tool_use" && p.input && typeof p.input === "object") {
+        const inputStr = JSON.stringify(p.input);
+        if (inputStr.length > 800) {
+          return {
+            ...p,
+            input: { _collapsed: true, _summary: inputStr.slice(0, 300) + "..." },
+          };
+        }
+      }
+      return part;
+    });
+
+    return { ...m, content: collapsed } as CoreMessage;
+  });
+}
+
+/**
+ * Heavy collapse: replace older assistant messages with short markers.
+ * Keeps system message + last 6 messages intact.
+ */
+function collapseOldAssistantMessages(messages: CoreMessage[]): CoreMessage[] {
+  if (messages.length < 10) return messages;
+
+  const system = messages[0];
+  if (!system) return messages;
+
+  const keepRecent = 6;
+  const tail = messages.slice(-keepRecent);
+  const oldMessages = messages.slice(1, -keepRecent);
+
+  const collapsed: CoreMessage[] = oldMessages.map((m) => {
+    const role = (m as { role?: string }).role;
+    if (role !== "assistant") return m;
+
+    const content = typeof m.content === "string" ? m.content : JSON.stringify(m.content);
+    if (content.length > 200) {
+      return {
+        role: "assistant",
+        content: `[Collapsed assistant message: ${content.length} chars — ${content.slice(0, 100)}...]`,
+      } as CoreMessage;
+    }
+    return m;
+  });
+
+  return [system, ...collapsed, ...tail];
+}
+
+/**
+ * Critical collapse: keep only system + last 2 exchanges.
+ */
+function criticalCollapse(messages: CoreMessage[]): CoreMessage[] {
+  const system = messages[0];
+  if (!system || messages.length < 5) return messages;
+
+  // Find last 2 user messages and their responses
+  const userIndices: number[] = [];
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m && (m as { role?: string }).role === "user") {
+      userIndices.push(i);
+      if (userIndices.length >= 2) break;
+    }
+  }
+
+  if (userIndices.length === 0) {
+    // No user messages found — keep last 4 messages
+    return [system, ...messages.slice(-4)];
+  }
+
+  const lastExchangeStart = Math.min(...userIndices);
+  return [system, ...messages.slice(lastExchangeStart)];
+}
+
+/**
+ * Apply progressive context collapse based on current usage level.
+ *
+ * Stages:
+ * - light (>88%): Collapse verbose tool results
+ * - medium (>92%): Also collapse large tool_use inputs
+ * - heavy (>96%): Also collapse old assistant messages
+ * - critical (>99%): Keep only system + last 2 exchanges
+ */
+export function applyContextCollapse(messages: CoreMessage[], maxTokens: number): CollapseResult {
+  const stats = getContextStats(messages, maxTokens);
+  const stage = getCollapseStage(stats.percent);
+
+  if (stage === "none") {
+    return { messages, stage: "none", tokensFreed: 0 };
+  }
+
+  const originalTokens = estimateMessagesTokens(messages);
+  let result = [...messages];
+
+  // Apply stages cumulatively
+  if (stage === "light" || stage === "medium" || stage === "heavy" || stage === "critical") {
+    result = collapseToolResults(result);
+  }
+
+  if (stage === "medium" || stage === "heavy" || stage === "critical") {
+    result = collapseToolInputs(result);
+  }
+
+  if (stage === "heavy" || stage === "critical") {
+    result = collapseOldAssistantMessages(result);
+  }
+
+  if (stage === "critical") {
+    result = criticalCollapse(result);
+  }
+
+  const newTokens = estimateMessagesTokens(result);
+  const tokensFreed = originalTokens - newTokens;
+
+  logger.info("[Context] Context collapse applied", {
+    stage,
+    before: originalTokens,
+    after: newTokens,
+    tokensFreed,
+  });
+
+  contextEvents.emit("context_stats", getContextStats(result, maxTokens));
+
+  return { messages: result, stage, tokensFreed };
+}
+
+/**
+ * Recover from context overflow by applying progressive collapse.
+ * Used when a 413 or context-too-long error occurs during streaming.
+ *
+ * Returns recovered messages or null if recovery fails.
+ */
+export function recoverFromOverflow(
+  messages: CoreMessage[],
+  maxTokens: number
+): CollapseResult | null {
+  const result = applyContextCollapse(messages, maxTokens);
+
+  if (result.stage === "none" || result.tokensFreed === 0) {
+    // Even critical collapse couldn't free enough tokens
+    logger.error("[Context] Context overflow recovery failed — all collapse stages exhausted");
+    return null;
+  }
+
+  // Verify the recovered messages fit within context
+  const recoveredStats = getContextStats(result.messages, maxTokens);
+  if (recoveredStats.percent >= 100) {
+    // Still overflowing after collapse — hard trim
+    const hardTrimmed = trimToContextWindow(result.messages, Math.floor(maxTokens * 0.6), 2);
+    const hardTokens = estimateMessagesTokens(hardTrimmed);
+    logger.warn("[Context] Overflow recovery: hard trim after collapse", {
+      stage: result.stage,
+      finalTokens: hardTokens,
+    });
+    return {
+      messages: hardTrimmed,
+      stage: "critical",
+      tokensFreed: estimateMessagesTokens(messages) - hardTokens,
+    };
+  }
+
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// max_output_tokens Escalation — auto-escalate output token limits (T-A37d)
+// ---------------------------------------------------------------------------
+
+const DEFAULT_MAX_OUTPUT_TOKENS = 8192;
+const ESCALATED_MAX_OUTPUT_TOKENS = 65536; // 64k
+const MAX_OUTPUT_ESCALATION_THRESHOLD = 0.7; // escalate when model uses > 70% of output limit
+
+/**
+ * Determine the appropriate max_output_tokens for the current request.
+ * Automatically escalates from 8k to 64k when the model's previous response
+ * hit the output limit (indicated by stop_reason = "max_tokens" or
+ * response approaching the limit).
+ */
+export function resolveMaxOutputTokens(
+  currentSetting: number | undefined,
+  lastStopReason?: string,
+  lastOutputTokenCount?: number
+): number {
+  const base = currentSetting ?? DEFAULT_MAX_OUTPUT_TOKENS;
+
+  // Check if we need to escalate
+  const hitLimit =
+    lastStopReason === "max_tokens" ||
+    lastStopReason === "length" ||
+    (lastOutputTokenCount !== undefined &&
+      lastOutputTokenCount >= base * MAX_OUTPUT_ESCALATION_THRESHOLD);
+
+  if (hitLimit && base < ESCALATED_MAX_OUTPUT_TOKENS) {
+    logger.info("[Context] Escalating max_output_tokens", {
+      from: base,
+      to: ESCALATED_MAX_OUTPUT_TOKENS,
+      reason: lastStopReason ?? "threshold exceeded",
+    });
+    return ESCALATED_MAX_OUTPUT_TOKENS;
+  }
+
+  return base;
+}
+
+// ---------------------------------------------------------------------------
 // /context Command (T-A36)
 // ---------------------------------------------------------------------------
 
