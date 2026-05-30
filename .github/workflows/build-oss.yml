@@ -20,6 +20,7 @@ jobs:
           bun-version: latest
           
       - name: Install dependencies
+        working-directory: pakalon-cli
         run: bun install
         
       - name: Type check
