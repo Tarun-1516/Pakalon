@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="pakalon-web/public/assets/logo-light.png" alt="Pakalon Logo" width="400">
+  <img src="pakalon-web/public/assets/Dark_theme_TPBG.png" alt="Pakalon Logo" width="400">
   
   # Pakalon — AI-Powered CLI Code Editor
   
@@ -514,7 +514,7 @@ No — Pakalon CLI is built entirely in TypeScript with Bun. No Python installat
 ---
 
 <div align="center">
-  <img src="pakalon-web/public/assets/logo-light.png" alt="Pakalon Logo" width="200">
+  <img src="pakalon-web/public/assets/Dark_theme_TPBG.png" alt="Pakalon Logo" width="200">
   
   **MIT © Pakalon**
 </div>
