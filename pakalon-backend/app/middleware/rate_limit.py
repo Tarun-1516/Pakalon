@@ -1,6 +1,13 @@
-"""Database-backed rate limiting middleware."""
+"""Rate limiting middleware for Pakalon backend.
+
+Provides rate limiting based on user tier and endpoint type.
+Supports both database-backed and in-memory rate limiting.
+"""
 import logging
-from typing import Callable
+import time
+from collections import defaultdict
+from datetime import datetime, timedelta
+from typing import Callable, Any
 
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
@@ -9,6 +16,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 import json
 import jwt
 from app.config import get_settings
+from app.features import get_feature_flags
 
 logger = logging.getLogger(__name__)
 
@@ -31,14 +39,97 @@ AI_PLAN_LIMITS: dict[tuple[str, str], dict[str, int]] = {
 DEFAULT_LIMIT = 100  # requests per minute per IP
 
 
+class RateLimitConfig:
+    """Configuration for rate limiting."""
+
+    # Default limits per tier
+    DEFAULT_LIMITS = {
+        "free": {
+            "requests_per_minute": 30,
+            "requests_per_hour": 500,
+            "tokens_per_day": 100_000,
+        },
+        "pro": {
+            "requests_per_minute": 100,
+            "requests_per_hour": 2000,
+            "tokens_per_day": 1_000_000,
+        },
+    }
+
+    # Endpoint-specific limits
+    ENDPOINT_LIMITS = {
+        "/chat": {"requests_per_minute": 20},
+        "/models": {"requests_per_minute": 60},
+        "/health": {"requests_per_minute": 120},
+    }
+
+
+class InMemoryRateLimiter:
+    """In-memory rate limiter for self-hosted mode."""
+
+    def __init__(self):
+        self._requests: dict[str, list[float]] = defaultdict(list)
+        self._tokens: dict[str, int] = defaultdict(int)
+        self._last_reset: dict[str, datetime] = {}
+
+    def _get_key(self, user_id: str, endpoint: str) -> str:
+        """Generate rate limit key."""
+        return f"{user_id}:{endpoint}"
+
+    def _cleanup_old_requests(self, key: str, window_seconds: int) -> None:
+        """Remove requests older than the window."""
+        cutoff = time.time() - window_seconds
+        self._requests[key] = [t for t in self._requests[key] if t > cutoff]
+
+    def check_rate_limit(
+        self,
+        user_id: str,
+        endpoint: str,
+        tier: str = "free",
+        limit_type: str = "requests_per_minute",
+    ) -> tuple[bool, dict[str, Any]]:
+        """Check if request is within rate limit."""
+        config = RateLimitConfig.DEFAULT_LIMITS.get(tier, RateLimitConfig.DEFAULT_LIMITS["free"])
+        limit = config.get(limit_type, 30)
+
+        key = self._get_key(user_id, endpoint)
+        window = 60 if "minute" in limit_type else 3600
+
+        self._cleanup_old_requests(key, window)
+        current_count = len(self._requests[key])
+
+        headers = {
+            "X-RateLimit-Limit": str(limit),
+            "X-RateLimit-Remaining": str(max(0, limit - current_count)),
+            "X-RateLimit-Reset": str(int(time.time() + window)),
+        }
+
+        if current_count >= limit:
+            return False, headers
+
+        self._requests[key].append(time.time())
+        return True, headers
+
+    def record_tokens(self, user_id: str, tokens: int) -> None:
+        """Record token usage."""
+        self._tokens[user_id] += tokens
+
+    def get_token_usage(self, user_id: str) -> int:
+        """Get total token usage for user."""
+        return self._tokens.get(user_id, 0)
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Sliding window rate limiter backed by the database."""
+    """Rate limiter with support for both database-backed and in-memory modes."""
 
     def __init__(self, app, redis_url: str | None = None) -> None:
         super().__init__(app)
         self._settings = get_settings()
+        self._memory_limiter = InMemoryRateLimiter()
+        self._flags = get_feature_flags()
 
     def _get_limit(self, method: str, path: str, plan: str | None = None) -> int:
+        """Get rate limit for endpoint."""
         # Check plan-based AI limits first (T-BE-22)
         for (m, prefix), plan_limits in AI_PLAN_LIMITS.items():
             if method == m and path.startswith(prefix):
@@ -50,6 +141,17 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return DEFAULT_LIMIT
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        settings = get_settings()
+        flags = get_feature_flags()
+
+        # Skip rate limiting in self-hosted mode (use in-memory limiter instead)
+        if settings.is_selfhosted:
+            return await self._dispatch_selfhosted(request, call_next)
+
+        # Skip rate limiting if not enabled
+        if not flags.rate_limiting:
+            return await call_next(request)
+
         client_ip = request.client.host if request.client else "unknown"
         path = request.url.path
         method = request.method
@@ -123,3 +225,34 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             logger.warning("Rate limiter error (skipping): %s", exc)
 
         return await call_next(request)
+
+    async def _dispatch_selfhosted(self, request: Request, call_next: Callable) -> Response:
+        """Dispatch with in-memory rate limiting for self-hosted mode."""
+        path = request.url.path
+        method = request.method
+
+        # Skip rate limiting for health check
+        if path == "/health":
+            return await call_next(request)
+
+        # Use simple in-memory rate limiting
+        user_id = "selfhosted_user"
+        tier = "free"
+
+        allowed, headers = self._memory_limiter.check_rate_limit(user_id, path, tier)
+
+        if not allowed:
+            logger.warning(f"Rate limit exceeded for self-hosted user on {path}")
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Rate limit exceeded"},
+                headers=headers,
+            )
+
+        response = await call_next(request)
+
+        # Add rate limit headers
+        for key, value in headers.items():
+            response.headers[key] = value
+
+        return response

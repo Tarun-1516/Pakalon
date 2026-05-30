@@ -27,6 +27,25 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     settings = get_settings()
     logger.info("Starting Pakalon Backend (%s)", settings.environment)
 
+    # Initialize build configuration
+    from app.build import initialize_build_config  # noqa: PLC0415
+    build_config = initialize_build_config()
+
+    # Initialize environment isolation
+    from app.env import initialize_environment  # noqa: PLC0415
+    initialize_environment(is_cloud=not settings.is_selfhosted)
+
+    # Validate startup configuration
+    from app.security import validate_startup  # noqa: PLC0415
+    validation_result = validate_startup()
+    if not validation_result["valid"]:
+        logger.error("Startup validation failed")
+        return
+
+    # Initialize provider registry
+    from app.providers import register_default_providers  # noqa: PLC0415
+    register_default_providers()
+
     if settings.is_selfhosted:
         logger.info("Self-hosted mode enabled; cloud database and schedulers are disabled")
         interrupted = False
@@ -136,10 +155,21 @@ def create_app() -> FastAPI:
     if settings.is_selfhosted:
         app.add_middleware(SelfHostedModeGate)
 
+    # ── API key obfuscation middleware ──────────────────────────
+    from app.middleware.api_key_obfuscation import ApiKeyObfuscationMiddleware
+
+    app.add_middleware(ApiKeyObfuscationMiddleware)
+
+    # ── Rate limiting middleware ────────────────────────────────
+    from app.middleware.rate_limit import RateLimitMiddleware
+
+    app.add_middleware(RateLimitMiddleware)
+
     # ── Routers ───────────────────────────────────────────────
-    from app.routers import health
+    from app.routers import health, system
 
     app.include_router(health.router)
+    app.include_router(system.router)
 
     if settings.is_selfhosted:
         from app.routers import local
