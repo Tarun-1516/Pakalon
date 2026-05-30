@@ -1755,3 +1755,14 @@ export default {
   getInlayHints,
   getSignatureHelp,
 };
+
+// Re-export diagnostic push utilities
+export {
+  getDiagnosticPushManager,
+  startDiagnosticPush,
+  stopDiagnosticPush,
+  pushDiagnostics,
+  clearDiagnostics,
+  DiagnosticPushManager,
+} from './diagnostic-push.js';
+export type { DiagnosticPushEvent, DiagnosticPushOptions } from './diagnostic-push.js';
