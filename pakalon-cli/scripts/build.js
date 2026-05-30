@@ -23,74 +23,64 @@ function ensureShebang(filePath, runtime, optional = false) {
   fs.writeFileSync(resolvedPath, `${shebang}\n${current.replace(/^#!.*\r?\n/, "")}`);
 }
 
-async function runBuild(options) {
+async function runBuild(entrypoints, outdir, target = "bun") {
   if (typeof Bun === "undefined") {
     console.error("This build script must be run with Bun.");
     process.exit(1);
   }
 
-  console.log(`[BUILD] Starting build:`, JSON.stringify(options, null, 2));
+  // Ensure output directory exists
+  const outDirPath = path.resolve(rootDir, outdir);
+  if (!fs.existsSync(outDirPath)) {
+    fs.mkdirSync(outDirPath, { recursive: true });
+    console.log(`[BUILD] Created output directory: ${outdir}`);
+  }
+
+  console.log(`[BUILD] Starting build...`);
+  console.log(`[BUILD] Entrypoints: ${entrypoints.join(", ")}`);
+  console.log(`[BUILD] Output dir: ${outdir}`);
+  console.log(`[BUILD] Target: ${target}`);
 
   const result = await Bun.build({
-    ...options,
+    entrypoints,
+    outdir,
+    target,
     external,
     minify: true,
+    splitting: false,
   });
+
+  console.log(`[BUILD] Result.success = ${result.success}`);
+  console.log(`[BUILD] Result.outputs = ${result.outputs?.length ?? 0}`);
+  console.log(`[BUILD] Result.logs = ${result.logs?.length ?? 0}`);
+
+  if (result.logs && result.logs.length > 0) {
+    for (const log of result.logs) {
+      console.log(`[BUILD]   ${log.level}: ${log.message || String(log)}`);
+    }
+  }
+
+  if (result.outputs && result.outputs.length > 0) {
+    for (const output of result.outputs) {
+      console.log(`[BUILD]   Output: ${output.path} (${output.size} bytes)`);
+    }
+  }
 
   if (!result.success) {
-    console.error(`[BUILD] Build failed!`);
-    for (const log of result.logs) {
-      console.error(`  ${log.level}: ${log.message || String(log)}`);
-    }
+    console.error(`[BUILD] Build FAILED`);
     process.exit(1);
   }
 
-  console.log(`[BUILD] Build succeeded`);
-
-  // Verify output file exists
-  const outPath = options.outfile || path.join(options.outdir || "dist", path.basename(options.entrypoints[0]));
-  const resolvedOut = path.resolve(rootDir, outPath);
-  if (!fs.existsSync(resolvedOut)) {
-    console.error(`[BUILD] Output file not found after build: ${resolvedOut}`);
-    // List what's in dist/
-    const distDir = path.resolve(rootDir, "dist");
-    if (fs.existsSync(distDir)) {
-      console.log(`[BUILD] dist/ contents:`, fs.readdirSync(distDir));
-    } else {
-      console.error(`[BUILD] dist/ directory does not exist`);
+  // List what's in the output directory
+  if (fs.existsSync(outDirPath)) {
+    const files = fs.readdirSync(outDirPath);
+    console.log(`[BUILD] ${outdir}/ contents: [${files.join(", ")}]`);
+    if (files.length === 0) {
+      console.error(`[BUILD] ERROR: Output directory is empty after successful build!`);
+      console.error(`[BUILD] This might be a Bun version issue. Check Bun version:`);
+      process.exit(1);
     }
-    process.exit(1);
   }
-
-  const stats = fs.statSync(resolvedOut);
-  console.log(`[BUILD] Output: ${outPath} (${stats.size} bytes)`);
-}
-
-async function buildCli() {
-  await runBuild({
-    entrypoints: ["src/index.tsx"],
-    target: "bun",
-    outfile: "dist/cli.js",
-  });
-  ensureShebang("dist/cli.js", "bun", true);
-}
-
-async function buildLegacyCli() {
-  await runBuild({
-    entrypoints: ["src/cli.ts"],
-    target: "node",
-    outfile: "dist/legacy-cli.js",
-  });
-  ensureShebang("dist/legacy-cli.js", "node", true);
-}
-
-async function buildApp() {
-  await runBuild({
-    entrypoints: ["src/index.tsx"],
-    target: "bun",
-    outdir: "dist",
-  });
-  ensureShebang("dist/index.js", "bun", true);
 }
 
 (async () => {
@@ -103,23 +93,31 @@ async function buildApp() {
 
   switch (mode) {
     case "all":
-      await buildCli();
-      await buildApp();
+      await runBuild(["src/index.tsx"], "dist", "bun");
+      ensureShebang("dist/index.js", "bun", true);
       break;
     case "cli":
-      await buildCli();
+      await runBuild(["src/index.tsx"], "dist", "bun");
+      ensureShebang("dist/index.js", "bun", true);
       break;
     case "legacy-cli":
-      await buildLegacyCli();
+      await runBuild(["src/cli.ts"], "dist", "node");
+      ensureShebang("dist/legacy-cli.js", "node", true);
       break;
     case "app":
-      await buildApp();
+      await runBuild(["src/index.tsx"], "dist", "bun");
+      ensureShebang("dist/index.js", "bun", true);
       break;
     default:
       console.error(`Unknown build target: ${mode}`);
       process.exit(2);
   }
+
+  console.log(`[BUILD] Done!`);
 })().catch((error) => {
   console.error(`[BUILD] Fatal error:`, error instanceof Error ? error.message : String(error));
+  if (error instanceof Error && error.stack) {
+    console.error(`[BUILD] Stack:`, error.stack);
+  }
   process.exit(1);
 });
