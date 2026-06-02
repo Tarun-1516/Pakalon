@@ -401,50 +401,6 @@ PENPOT_HOST=http://localhost:3449
 PENPOT_API_TOKEN=your_penpot_token
 ```
 
-### User Config
-
-```
-~/.config/pakalon/
-├── storage.json          # Local auth state (empty in self-hosted)
-├── settings.json         # User preferences
-├── selfhost.json         # Self-host marker file
-├── telegram.json         # Telegram bot config
-├── local-models.json     # Local model settings
-└── debug.log             # Debug logs (if enabled)
-```
-
-### Project Config
-
-```
-.pakalon/
-├── plan.md
-├── spec.md
-├── CLAUDE.md
-├── settings.local.json   # Local permissions
-└── phase-N.md            # Phase outputs
-```
-
----
-
-## Privacy Mode (Self-Hosted Default)
-
-Self-hosted mode **disables all cloud telemetry by default**. The machine IDs (`telemetry.machineId`, `macMachineId`, `devDeviceId`) are still generated locally for session continuity but are never sent off-device.
-
-To explicitly enable privacy mode:
-
-```bash
-pakalon --privacy
-# or toggle in chat with Ctrl+P
-```
-
-To reset local machine IDs (creates a "new machine" locally, useful for clean slate):
-
-```bash
-pakalon privacy reset-machine-id
-# or use Ctrl+Shift+P > "Fake Pakalon" if mapped in your editor
-```
-
----
 
 ## Local Sandbox
 
@@ -516,64 +472,7 @@ Phase 5 (CI/CD) → Phase 6 (Documentation) → Complete
 
 ---
 
-## Troubleshooting
 
-| Problem | Solution |
-|---------|----------|
-| Bun not found | Install Bun: `curl -fsSL https://bun.sh/install \| bash` |
-| `ollama: command not found` | Install from https://ollama.com |
-| `connection refused` on `localhost:11434` | Run `ollama serve` in another terminal |
-| Port 8000 in use (optional backend) | Change port: `--port 8001` |
-| Docker not running | Docker only needed for Penpot (Phase 2) and SAST/DAST (Phase 4) |
-| Build fails | Run `bun install` then `bun run build` |
-| `models list is empty` in `/models` | Verify Ollama/LM Studio is running and Pakalon can reach it |
-| Phase 2 needs Penpot | `docker run -d -p 3449:3449 penpot/penpot` |
-
-### Debug Mode
-
-```bash
-# Enable debug logging
-pakalon --debug
-
-# View debug log
-tail -f ~/.config/pakalon/debug.log
-```
-
----
-
-## FAQ
-
-**Can I use Pakalon self-hosted without an account?**
-Yes — that's the default. No GitHub OAuth, no email, no telemetry.
-
-**How do I add more local models?**
-Pull them with Ollama (`ollama pull <model>`) or load them in LM Studio. They appear automatically in `/models`.
-
-**Can I switch between self-hosted and cloud?**
-Yes. Run `pakalon --selfhost` for self-hosted, or `pakalon login` to link a cloud account. The choice is per-session.
-
-**What AI models are supported in self-hosted?**
-Anything that speaks the Ollama API or LM Studio's OpenAI-compatible API. That includes Llama, Qwen, DeepSeek, Mistral, Phi, Gemma, CodeLlama, and any other local model.
-
-**Do I need Docker?**
-Only if you want Penpot wireframes (Phase 2) or the SAST/DAST security suite (Phase 4). Everything else runs natively.
-
-**Is the project open source?**
-Yes — MIT. See [LICENSE](LICENSE).
-
----
-
-## Additional Resources
-
-- **Backend README:** `./pakalon-backend/README.md` (cloud features; optional in self-host)
-- **CLI README:** `./pakalon-cli/README.md`
-- **Web README:** `./pakalon-web/README.md` (cloud features; optional in self-host)
-- **Penpot Docs:** https://penpot.app/docs
-- **Ollama:** https://ollama.com
-- **LM Studio:** https://lmstudio.ai
-- **Bun:** https://bun.sh
-
----
 
 <div align="center">
   <img src="pakalon-web/public/assets/Dark_theme_TPBG.png" alt="Pakalon Logo" width="200">
