@@ -475,7 +475,7 @@ Phase 5 (CI/CD) → Phase 6 (Documentation) → Complete
 
 
 <div align="center">
-  <img src="pakalon-web/public/assets/Dark_theme_TPBG.png" alt="Pakalon Logo" width="200">
+  <img src="pakalon-web/public/assets/Light_theme_TPBG.png" alt="Pakalon Logo" width="200">
 
   **MIT © Pakalon**
 </div>
