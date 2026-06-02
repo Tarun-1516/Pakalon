@@ -1,0 +1,74 @@
+{
+  "app": {
+    "name": "Pakalon",
+    "tagline": "AI-संचालित CLI कोड एडिटर"
+  },
+  "modes": {
+    "chat": "चैट",
+    "plan": "योजना",
+    "edit": "संपादन",
+    "agent": "एजेंट",
+    "yolo": "YOLO"
+  },
+  "commands": {
+    "exit": "बाहर निकलें",
+    "help": "मदद",
+    "clear": "चैट साफ़ करें",
+    "undo": "अंतिम परिवर्तन पूर्ववत करें",
+    "redo": "अंतिम परिवर्तन पुनः करें",
+    "compact": "बातचीत संकुचित करें",
+    "sessions": "सत्र देखें",
+    "models": "मॉडल सूची",
+    "agents": "एजेंट प्रबंधित करें",
+    "skills": "कौशल प्रबंधित करें",
+    "login": "लॉग इन",
+    "logout": "लॉग आउट",
+    "doctor": "डायग्नोस्टिक चलाएँ",
+    "install": "निर्भरताएँ स्थापित करें",
+    "init": ".pakalon/ आरंभ करें"
+  },
+  "prompts": {
+    "user_input": "›",
+    "press_enter": "जारी रखने के लिए Enter दबाएँ",
+    "ctrl_c_to_cancel": "रद्द करने के लिए Ctrl-C",
+    "esc_to_cancel": "रद्द करने के लिए Esc",
+    "yes_no": "हाँ / नहीं",
+    "save_before_exit": "बाहर निकलने से पहले परिवर्तन सहेजें?",
+    "overwrite_file": "{path} को अधिलेखित करें?",
+    "delete_file": "{path} हटाएँ?",
+    "files_affected": { "one": "{count} फ़ाइल प्रभावित", "other": "{count} फ़ाइलें प्रभावित" },
+    "tokens_used": { "one": "{count} टोकन उपयोग", "other": "{count} टोकन उपयोग" }
+  },
+  "errors": {
+    "not_authenticated": "प्रमाणीकृत नहीं। पहले `pakalon login` चलाएँ।",
+    "no_internet": "इंटरनेट कनेक्शन नहीं है।",
+    "rate_limited": "{provider} द्वारा दर सीमित। {seconds}s में पुनः प्रयास…",
+    "command_failed": "कमांड विफल: {message}",
+    "file_not_found": "फ़ाइल नहीं मिली: {path}",
+    "permission_denied": "अनुमति अस्वीकृत: {path}"
+  },
+  "tools": {
+    "bash": "टर्मिनल",
+    "edit": "संपादन",
+    "read": "पढ़ें",
+    "write": "लिखें",
+    "grep": "खोज",
+    "glob": "ग्लोब",
+    "web_search": "वेब खोज",
+    "web_fetch": "वेब डाउनलोड",
+    "task": "कार्य"
+  },
+  "phases": {
+    "planning": "चरण 1 — योजना",
+    "wireframes": "चरण 2 — वायरफ्रेम",
+    "development": "चरण 3 — विकास",
+    "testing": "चरण 4 — परीक्षण",
+    "ci_cd": "चरण 5 — CI/CD",
+    "docs": "चरण 6 — दस्तावेज़ीकरण"
+  },
+  "auth": {
+    "device_code_label": "यह कोड {url} पर दर्ज करें",
+    "device_code_copied": "कोड क्लिपबोर्ड पर कॉपी किया गया",
+    "device_code_failed": "डिवाइस प्रमाणीकरण विफल: {message}"
+  }
+}

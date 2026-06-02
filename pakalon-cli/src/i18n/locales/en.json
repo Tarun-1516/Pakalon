@@ -1,0 +1,74 @@
+{
+  "app": {
+    "name": "Pakalon",
+    "tagline": "AI-powered CLI code editor"
+  },
+  "modes": {
+    "chat": "Chat",
+    "plan": "Plan",
+    "edit": "Edit",
+    "agent": "Agent",
+    "yolo": "YOLO"
+  },
+  "commands": {
+    "exit": "Exit",
+    "help": "Help",
+    "clear": "Clear chat",
+    "undo": "Undo last change",
+    "redo": "Redo last change",
+    "compact": "Compact conversation",
+    "sessions": "Browse sessions",
+    "models": "List models",
+    "agents": "Manage agents",
+    "skills": "Manage skills",
+    "login": "Log in",
+    "logout": "Log out",
+    "doctor": "Run diagnostics",
+    "install": "Install dependencies",
+    "init": "Initialize .pakalon/"
+  },
+  "prompts": {
+    "user_input": "›",
+    "press_enter": "Press Enter to continue",
+    "ctrl_c_to_cancel": "Ctrl-C to cancel",
+    "esc_to_cancel": "Esc to cancel",
+    "yes_no": "Yes / No",
+    "save_before_exit": "Save changes before exiting?",
+    "overwrite_file": "Overwrite {path}?",
+    "delete_file": "Delete {path}?",
+    "files_affected": { "one": "{count} file affected", "other": "{count} files affected" },
+    "tokens_used": { "one": "{count} token used", "other": "{count} tokens used" }
+  },
+  "errors": {
+    "not_authenticated": "Not authenticated. Run `pakalon login` first.",
+    "no_internet": "No internet connection.",
+    "rate_limited": "Rate-limited by {provider}. Retrying in {seconds}s…",
+    "command_failed": "Command failed: {message}",
+    "file_not_found": "File not found: {path}",
+    "permission_denied": "Permission denied: {path}"
+  },
+  "tools": {
+    "bash": "Bash",
+    "edit": "Edit",
+    "read": "Read",
+    "write": "Write",
+    "grep": "Grep",
+    "glob": "Glob",
+    "web_search": "Web Search",
+    "web_fetch": "Web Fetch",
+    "task": "Task"
+  },
+  "phases": {
+    "planning": "Phase 1 — Planning",
+    "wireframes": "Phase 2 — Wireframes",
+    "development": "Phase 3 — Development",
+    "testing": "Phase 4 — Testing",
+    "ci_cd": "Phase 5 — CI/CD",
+    "docs": "Phase 6 — Documentation"
+  },
+  "auth": {
+    "device_code_label": "Enter this code at {url}",
+    "device_code_copied": "Code copied to clipboard",
+    "device_code_failed": "Device authentication failed: {message}"
+  }
+}

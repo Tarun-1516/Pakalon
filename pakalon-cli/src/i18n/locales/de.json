@@ -1,0 +1,74 @@
+{
+  "app": {
+    "name": "Pakalon",
+    "tagline": "KI-gestützter CLI-Code-Editor"
+  },
+  "modes": {
+    "chat": "Chat",
+    "plan": "Plan",
+    "edit": "Bearbeiten",
+    "agent": "Agent",
+    "yolo": "YOLO"
+  },
+  "commands": {
+    "exit": "Beenden",
+    "help": "Hilfe",
+    "clear": "Chat leeren",
+    "undo": "Letzte Änderung rückgängig",
+    "redo": "Letzte Änderung wiederherstellen",
+    "compact": "Konversation verdichten",
+    "sessions": "Sitzungen durchsuchen",
+    "models": "Modelle auflisten",
+    "agents": "Agenten verwalten",
+    "skills": "Fähigkeiten verwalten",
+    "login": "Anmelden",
+    "logout": "Abmelden",
+    "doctor": "Diagnose ausführen",
+    "install": "Abhängigkeiten installieren",
+    "init": ".pakalon/ initialisieren"
+  },
+  "prompts": {
+    "user_input": "›",
+    "press_enter": "Drücken Sie die Eingabetaste, um fortzufahren",
+    "ctrl_c_to_cancel": "Strg-C zum Abbrechen",
+    "esc_to_cancel": "Esc zum Abbrechen",
+    "yes_no": "Ja / Nein",
+    "save_before_exit": "Änderungen vor dem Beenden speichern?",
+    "overwrite_file": "{path} überschreiben?",
+    "delete_file": "{path} löschen?",
+    "files_affected": { "one": "{count} Datei betroffen", "other": "{count} Dateien betroffen" },
+    "tokens_used": { "one": "{count} Token verwendet", "other": "{count} Tokens verwendet" }
+  },
+  "errors": {
+    "not_authenticated": "Nicht angemeldet. Zuerst `pakalon login` ausführen.",
+    "no_internet": "Keine Internetverbindung.",
+    "rate_limited": "Durch {provider} gedrosselt. Neuer Versuch in {seconds} s…",
+    "command_failed": "Befehl fehlgeschlagen: {message}",
+    "file_not_found": "Datei nicht gefunden: {path}",
+    "permission_denied": "Zugriff verweigert: {path}"
+  },
+  "tools": {
+    "bash": "Terminal",
+    "edit": "Bearbeiten",
+    "read": "Lesen",
+    "write": "Schreiben",
+    "grep": "Suchen",
+    "glob": "Glob",
+    "web_search": "Websuche",
+    "web_fetch": "Webabruf",
+    "task": "Aufgabe"
+  },
+  "phases": {
+    "planning": "Phase 1 — Planung",
+    "wireframes": "Phase 2 — Wireframes",
+    "development": "Phase 3 — Entwicklung",
+    "testing": "Phase 4 — Tests",
+    "ci_cd": "Phase 5 — CI/CD",
+    "docs": "Phase 6 — Dokumentation"
+  },
+  "auth": {
+    "device_code_label": "Diesen Code auf {url} eingeben",
+    "device_code_copied": "Code in die Zwischenablage kopiert",
+    "device_code_failed": "Geräteauthentifizierung fehlgeschlagen: {message}"
+  }
+}

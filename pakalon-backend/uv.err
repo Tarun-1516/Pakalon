@@ -1,0 +1,14 @@
+Database at localhost:5433 is unreachable; using development SQLite fallback at sqlite+aiosqlite:///D:/pakalon/pakalon-backend/.local/pakalon-dev.db
+Traceback (most recent call last):
+  File "D:\pakalon\pakalon-backend\_run_for_test.py", line 4, in <module>
+    from app.main import app  # noqa
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\pakalon\pakalon-backend\app\main.py", line 269, in <module>
+    app = create_app()
+  File "D:\pakalon\pakalon-backend\app\main.py", line 153, in create_app
+    from app.middleware.mode import SelfHostedModeGate
+  File "D:\pakalon\pakalon-backend\app\middleware\mode.py", line 10, in <module>
+    from app.services.local_auth import DeploymentMode, get_deployment_mode
+  File "D:\pakalon\pakalon-backend\app\services\local_auth.py", line 24, in <module>
+    from ..config import settings
+ImportError: cannot import name 'settings' from 'app.config' (D:\pakalon\pakalon-backend\app\config.py)

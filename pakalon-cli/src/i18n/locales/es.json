@@ -1,0 +1,74 @@
+{
+  "app": {
+    "name": "Pakalon",
+    "tagline": "Editor de código CLI con IA"
+  },
+  "modes": {
+    "chat": "Chat",
+    "plan": "Planificar",
+    "edit": "Editar",
+    "agent": "Agente",
+    "yolo": "YOLO"
+  },
+  "commands": {
+    "exit": "Salir",
+    "help": "Ayuda",
+    "clear": "Vaciar chat",
+    "undo": "Deshacer último cambio",
+    "redo": "Rehacer último cambio",
+    "compact": "Compactar conversación",
+    "sessions": "Explorar sesiones",
+    "models": "Listar modelos",
+    "agents": "Administrar agentes",
+    "skills": "Administrar habilidades",
+    "login": "Iniciar sesión",
+    "logout": "Cerrar sesión",
+    "doctor": "Ejecutar diagnóstico",
+    "install": "Instalar dependencias",
+    "init": "Inicializar .pakalon/"
+  },
+  "prompts": {
+    "user_input": "›",
+    "press_enter": "Pulsa Enter para continuar",
+    "ctrl_c_to_cancel": "Ctrl-C para cancelar",
+    "esc_to_cancel": "Esc para cancelar",
+    "yes_no": "Sí / No",
+    "save_before_exit": "¿Guardar cambios antes de salir?",
+    "overwrite_file": "¿Sobrescribir {path}?",
+    "delete_file": "¿Eliminar {path}?",
+    "files_affected": { "one": "{count} archivo afectado", "other": "{count} archivos afectados" },
+    "tokens_used": { "one": "{count} token usado", "other": "{count} tokens usados" }
+  },
+  "errors": {
+    "not_authenticated": "No autenticado. Ejecuta `pakalon login` primero.",
+    "no_internet": "Sin conexión a internet.",
+    "rate_limited": "Limitado por {provider}. Reintentando en {seconds}s…",
+    "command_failed": "Comando falló: {message}",
+    "file_not_found": "Archivo no encontrado: {path}",
+    "permission_denied": "Permiso denegado: {path}"
+  },
+  "tools": {
+    "bash": "Terminal",
+    "edit": "Editar",
+    "read": "Leer",
+    "write": "Escribir",
+    "grep": "Buscar",
+    "glob": "Glob",
+    "web_search": "Búsqueda web",
+    "web_fetch": "Descargar web",
+    "task": "Tarea"
+  },
+  "phases": {
+    "planning": "Fase 1 — Planificación",
+    "wireframes": "Fase 2 — Wireframes",
+    "development": "Fase 3 — Desarrollo",
+    "testing": "Fase 4 — Pruebas",
+    "ci_cd": "Fase 5 — CI/CD",
+    "docs": "Fase 6 — Documentación"
+  },
+  "auth": {
+    "device_code_label": "Introduce este código en {url}",
+    "device_code_copied": "Código copiado al portapapeles",
+    "device_code_failed": "Autenticación de dispositivo falló: {message}"
+  }
+}

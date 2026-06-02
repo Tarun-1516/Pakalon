@@ -1,0 +1,74 @@
+{
+  "app": {
+    "name": "Pakalon",
+    "tagline": "Éditeur de code en CLI propulsé par l'IA"
+  },
+  "modes": {
+    "chat": "Discussion",
+    "plan": "Plan",
+    "edit": "Édition",
+    "agent": "Agent",
+    "yolo": "YOLO"
+  },
+  "commands": {
+    "exit": "Quitter",
+    "help": "Aide",
+    "clear": "Vider la discussion",
+    "undo": "Annuler la dernière modification",
+    "redo": "Rétablir la dernière modification",
+    "compact": "Compacter la conversation",
+    "sessions": "Parcourir les sessions",
+    "models": "Lister les modèles",
+    "agents": "Gérer les agents",
+    "skills": "Gérer les compétences",
+    "login": "Se connecter",
+    "logout": "Se déconnecter",
+    "doctor": "Lancer le diagnostic",
+    "install": "Installer les dépendances",
+    "init": "Initialiser .pakalon/"
+  },
+  "prompts": {
+    "user_input": "›",
+    "press_enter": "Appuyez sur Entrée pour continuer",
+    "ctrl_c_to_cancel": "Ctrl-C pour annuler",
+    "esc_to_cancel": "Échap pour annuler",
+    "yes_no": "Oui / Non",
+    "save_before_exit": "Enregistrer les modifications avant de quitter ?",
+    "overwrite_file": "Écraser {path} ?",
+    "delete_file": "Supprimer {path} ?",
+    "files_affected": { "one": "{count} fichier concerné", "other": "{count} fichiers concernés" },
+    "tokens_used": { "one": "{count} jeton utilisé", "other": "{count} jetons utilisés" }
+  },
+  "errors": {
+    "not_authenticated": "Non authentifié. Lancez d'abord `pakalon login`.",
+    "no_internet": "Pas de connexion Internet.",
+    "rate_limited": "Limité par {provider}. Nouvelle tentative dans {seconds} s…",
+    "command_failed": "Échec de la commande : {message}",
+    "file_not_found": "Fichier introuvable : {path}",
+    "permission_denied": "Permission refusée : {path}"
+  },
+  "tools": {
+    "bash": "Terminal",
+    "edit": "Modifier",
+    "read": "Lire",
+    "write": "Écrire",
+    "grep": "Rechercher",
+    "glob": "Glob",
+    "web_search": "Recherche web",
+    "web_fetch": "Récupération web",
+    "task": "Tâche"
+  },
+  "phases": {
+    "planning": "Phase 1 — Planification",
+    "wireframes": "Phase 2 — Maquettes",
+    "development": "Phase 3 — Développement",
+    "testing": "Phase 4 — Tests",
+    "ci_cd": "Phase 5 — CI/CD",
+    "docs": "Phase 6 — Documentation"
+  },
+  "auth": {
+    "device_code_label": "Saisissez ce code sur {url}",
+    "device_code_copied": "Code copié dans le presse-papier",
+    "device_code_failed": "Échec de l'authentification de l'appareil : {message}"
+  }
+}

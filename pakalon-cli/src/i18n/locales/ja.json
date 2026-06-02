@@ -1,0 +1,74 @@
+{
+  "app": {
+    "name": "Pakalon",
+    "tagline": "AI搭載CLIコードエディタ"
+  },
+  "modes": {
+    "chat": "チャット",
+    "plan": "プラン",
+    "edit": "編集",
+    "agent": "エージェント",
+    "yolo": "YOLO"
+  },
+  "commands": {
+    "exit": "終了",
+    "help": "ヘルプ",
+    "clear": "チャットをクリア",
+    "undo": "最後の変更を取り消す",
+    "redo": "最後の変更をやり直す",
+    "compact": "会話を圧縮",
+    "sessions": "セッションを参照",
+    "models": "モデル一覧",
+    "agents": "エージェントを管理",
+    "skills": "スキルを管理",
+    "login": "ログイン",
+    "logout": "ログアウト",
+    "doctor": "診断を実行",
+    "install": "依存関係をインストール",
+    "init": ".pakalon/ を初期化"
+  },
+  "prompts": {
+    "user_input": "›",
+    "press_enter": "続行するには Enter を押してください",
+    "ctrl_c_to_cancel": "キャンセルするには Ctrl-C",
+    "esc_to_cancel": "キャンセルするには Esc",
+    "yes_no": "はい / いいえ",
+    "save_before_exit": "終了前に変更を保存しますか?",
+    "overwrite_file": "{path} を上書きしますか?",
+    "delete_file": "{path} を削除しますか?",
+    "files_affected": { "one": "{count} ファイルが影響を受ける", "other": "{count} ファイルが影響を受ける" },
+    "tokens_used": { "one": "{count} トークンを使用", "other": "{count} トークンを使用" }
+  },
+  "errors": {
+    "not_authenticated": "認証されていません。先に `pakalon login` を実行してください。",
+    "no_internet": "インターネット接続がありません。",
+    "rate_limited": "{provider} により制限されています。{seconds}秒後に再試行します…",
+    "command_failed": "コマンド失敗: {message}",
+    "file_not_found": "ファイルが見つかりません: {path}",
+    "permission_denied": "アクセス拒否: {path}"
+  },
+  "tools": {
+    "bash": "ターミナル",
+    "edit": "編集",
+    "read": "読み取り",
+    "write": "書き込み",
+    "grep": "検索",
+    "glob": "Glob",
+    "web_search": "Web検索",
+    "web_fetch": "Web取得",
+    "task": "タスク"
+  },
+  "phases": {
+    "planning": "フェーズ 1 — 計画",
+    "wireframes": "フェーズ 2 — ワイヤーフレーム",
+    "development": "フェーズ 3 — 開発",
+    "testing": "フェーズ 4 — テスト",
+    "ci_cd": "フェーズ 5 — CI/CD",
+    "docs": "フェーズ 6 — ドキュメント"
+  },
+  "auth": {
+    "device_code_label": "このコードを {url} に入力してください",
+    "device_code_copied": "コードをクリップボードにコピーしました",
+    "device_code_failed": "デバイス認証に失敗しました: {message}"
+  }
+}

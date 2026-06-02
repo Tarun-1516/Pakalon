@@ -1,0 +1,116 @@
+# docker-compose.security.yml — FULL profile
+#
+# Pulls the entire security toolchain so Phase 4 can run the full
+# 15-tool SAST+DAST suite against the freshly-built app. This is the
+# "max paranoia" profile; the default docker-compose.security.yml is
+# a slim subset.
+#
+# Usage:
+#   docker compose -f docker-compose.security.yml --profile full up -d
+#
+# Each tool exposes its own port on localhost. The CLI auto-detects
+# whether a binary is available on $PATH or in this compose network.
+version: "3.9"
+
+x-pakalon-security: &pakalon-security
+  restart: unless-stopped
+  networks:
+    - pakalon-sec
+
+services:
+  # ── SAST ──────────────────────────────────────────────────────
+  semgrep:
+    <<: *pakalon-security
+    image: returntocorp/semgrep:latest
+    command: ["semgrep", "--config=auto", "--json", "/src"]
+    volumes:
+      - ${PROJECT_DIR:-.}:/src:ro
+  gitleaks:
+    <<: *pakalon-security
+    image: zricethezav/gitleaks:latest
+    command: ["detect", "--no-git", "-r", "json", "-f", "-", "/src"]
+    volumes:
+      - ${PROJECT_DIR:-.}:/src:ro
+  bandit:
+    <<: *pakalon-security
+    image: python:3.12-slim
+    command: ["sh", "-c", "pip install -q bandit && bandit -r /src -f json -q"]
+    volumes:
+      - ${PROJECT_DIR:-.}:/src:ro
+  brakeman:
+    <<: *pakalon-security
+    image: ruby:3.2-slim
+    command: ["sh", "-c", "gem install brakeman -q && brakeman --no-progress -f json /src"]
+    volumes:
+      - ${PROJECT_DIR:-.}:/src:ro
+  eslint-security:
+    <<: *pakalon-security
+    image: node:20-slim
+    command: ["sh", "-c", "npm i -g eslint eslint-plugin-security >/dev/null 2>&1 && eslint --ext .js,.ts,.tsx --format json --no-color /src"]
+    volumes:
+      - ${PROJECT_DIR:-.}:/src:ro
+  sonarqube:
+    <<: *pakalon-security
+    image: sonarsource/sonar-scanner-cli:latest
+    command: ["sonar-scanner", "-Dsonar.projectBaseDir=/src"]
+    volumes:
+      - ${PROJECT_DIR:-.}:/src:ro
+  findsecbugs:
+    <<: *pakalon-security
+    image: findbugs/spotbugs:latest
+    command: ["sh", "-c", "mvn -q -DskipTests -Dfindsecbugs.failOnError=false -Pfindsecbugs verify || true"]
+    volumes:
+      - ${PROJECT_DIR:-.}:/src:ro
+
+  # ── DAST ──────────────────────────────────────────────────────
+  owasp-zap:
+    <<: *pakalon-security
+    image: ghcr.io/zaproxy/zaproxy:stable
+    command: ["sh", "-c", "zap-baseline.py -t ${TARGET_URL:-http://host.docker.internal:3000} -J report.json || true"]
+    ports:
+      - "8080:8080"
+  nikto:
+    <<: *pakalon-security
+    image: secfigo/nikto:latest
+    command: ["sh", "-c", "nikto -h ${TARGET_URL:-http://host.docker.internal:3000} -Tuning 1234 -ask no -Format json || true"]
+  sqlmap:
+    <<: *pakalon-security
+    image: paoloo/sqlmap:latest
+    command: ["sh", "-c", "sqlmap -u ${TARGET_URL:-http://host.docker.internal:3000} --batch --disable-coloring -o /out || true"]
+    volumes:
+      - zap-reports:/out
+  wapiti:
+    <<: *pakalon-security
+    image: wapiti/wapiti:latest
+    command: ["sh", "-c", "wapiti -u ${TARGET_URL:-http://host.docker.internal:3000} -f json -o /out/wapiti.json || true"]
+    volumes:
+      - zap-reports:/out
+  xsstrike:
+    <<: *pakalon-security
+    image: python:3.12-slim
+    command: ["sh", "-c", "pip install -q xsstrike && xsstrike -u ${TARGET_URL:-http://host.docker.internal:3000} --crawl || true"]
+
+  # ── Browser automation ────────────────────────────────────────
+  chrome:
+    <<: *pakalon-security
+    image: selenium/standalone-chrome:latest
+    ports:
+      - "4444:4444"
+      - "7900:7900"
+
+  # ── Penpot for visual regression ──────────────────────────────
+  penpot:
+    <<: *pakalon-security
+    image: penpotapp/frontend:latest
+    profiles: ["full"]
+    ports:
+      - "3449:3449"
+    environment:
+      - PENPOT_FLAGS=enable-registration enable-login-with-password
+
+networks:
+  pakalon-sec:
+    driver: bridge
+
+volumes:
+  zap-reports:
