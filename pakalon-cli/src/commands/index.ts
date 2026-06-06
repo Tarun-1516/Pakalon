@@ -18,6 +18,8 @@ export { diffCommand, getGitDiff, getStagedDiff, getCommitDiff, computeDiff, for
 // Info Commands
 export { helpCommand, registerCommand, getCommand, getAllCommands, formatCommandList, formatHelpOverview } from "./help.js";
 export { costCommand, usageCommand, statsCommand, calculateCost, recordUsage, getUsageStats, resetUsage } from "./cost.js";
+export { costThresholdCommand } from "./cost-threshold.js";
+export { tokenWarningCommand } from "./token-warning.js";
 export { versionCommand, themeCommand, loadTheme, saveTheme, getTheme, getThemeNames, THEMES } from "./version-theme.js";
 export { parityCommands } from "./parity.js";
 
@@ -79,6 +81,8 @@ import { copyCommand } from "./copy.js";
 import { diffCommand } from "./diff.js";
 import { helpCommand } from "./help.js";
 import { costCommand, usageCommand, statsCommand } from "./cost.js";
+import { costThresholdCommand } from "./cost-threshold.js";
+import { tokenWarningCommand } from "./token-warning.js";
 import { versionCommand, themeCommand } from "./version-theme.js";
 import { loginCommand, logoutCommand, whoamiCommand } from "./auth.js";
 import { mcpCommand } from "./mcp.js";
@@ -114,6 +118,15 @@ import { undoCommand } from "./undo.js";
 import { doctorCommand } from "./doctor.js";
 import { installCommand } from "./install.js";
 import { sandboxCommand } from "./sandbox.js";
+import advisorCommand from "./advisor.js";
+import { reviewCommand } from "./review.js";
+import shareCommand from "./share/index.js";
+import commitPushPrCommand from "./commit-push-pr.js";
+import onboardingCommand from "./onboarding.js";
+import bughunterCommand from "./bughunter/index.js";
+import securityReviewCommand from "./security-review.js";
+import privacySettingsCommand from "./privacy-settings/index.js";
+import { contextCommand, contextNonInteractiveCommand } from "./context/index.js";
 
 // ---------------------------------------------------------------------------
 // All Built-in Commands
@@ -136,6 +149,8 @@ export const builtinCommands: CommandDefinition[] = [
   // Info
   helpCommand as unknown as CommandDefinition,
   costCommand as unknown as CommandDefinition,
+  costThresholdCommand as unknown as CommandDefinition,
+  tokenWarningCommand as unknown as CommandDefinition,
   usageCommand as unknown as CommandDefinition,
   statsCommand as unknown as CommandDefinition,
   versionCommand as unknown as CommandDefinition,
@@ -209,11 +224,22 @@ export const builtinCommands: CommandDefinition[] = [
   // Multi-session
   multiSessionCommand as unknown as CommandDefinition,
 
-  // Background memory consolidation
-  autoDreamCommand,
+   // Background memory consolidation
+   autoDreamCommand,
 
-  // AIO Sandbox status
-  sandboxCommand,
+   // AIO Sandbox status
+   sandboxCommand,
+
+   // Additional registered commands
+   advisorCommand as unknown as CommandDefinition,
+   reviewCommand as unknown as CommandDefinition,
+   shareCommand as unknown as CommandDefinition,
+   commitPushPrCommand as unknown as CommandDefinition,
+   onboardingCommand as unknown as CommandDefinition,
+   bughunterCommand as unknown as CommandDefinition,
+   securityReviewCommand as unknown as CommandDefinition,
+   privacySettingsCommand as unknown as CommandDefinition,
+   contextCommand as unknown as CommandDefinition,
 ];
 
 // ---------------------------------------------------------------------------

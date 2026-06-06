@@ -1,21 +1,9 @@
 /**
  * /context command - Context window visualization (Copilot CLI style)
- * 
- * Visualize the current context window usage, message history, and token consumption.
- * Shows warnings when approaching context limits.
- * 
- * Features:
- * - Token usage visualization
- * - Message history breakdown
- * - Compaction recommendations
- * - Model context limits
- * 
- * Usage:
- *   /context              - Show context visualization
- *   /context --detailed   - Show full message list
  */
 
 import { ContextManager } from '@/ai/context-manager';
+import { calculateTokenWarning, formatTokenWarningState, getTokenWarningSettings } from '@/services/token-warning.js';
 import logger from '@/utils/logger';
 
 /**
@@ -33,40 +21,52 @@ export interface ContextCommandOptions {
  * Visualize context window usage
  */
 export async function cmdContext(options: ContextCommandOptions = {}): Promise<void> {
-  // For now, create a sample context manager
-  // In real usage, this would get the current session's context manager
-  const contextManager = new ContextManager(200_000); // 200k default
-  
-  // Get visualization
-  const viz = contextManager.visualize();
+  const contextManager = new ContextManager({ maxTokens: 200_000 });
+  const stats = contextManager.getStats();
+  const tokenWarning = calculateTokenWarning(
+    stats.tokensUsed,
+    stats.tokensMax,
+    options.sessionId,
+    getTokenWarningSettings(),
+  );
+
+  const barWidth = 30;
+  const filled = Math.round((stats.percentageUsed / 100) * barWidth);
+  const bar = "█".repeat(Math.max(0, Math.min(barWidth, filled))) + "░".repeat(Math.max(0, barWidth - filled));
   
   console.log('\n╭───────────────────────────────────────────────────────────╮');
   console.log('│                   CONTEXT WINDOW STATUS                   │');
   console.log('╰───────────────────────────────────────────────────────────╯\n');
   
   // Token usage bar
-  const percentage = viz.percentage;
-  const barLength = 50;
-  const filledLength = Math.floor((percentage / 100) * barLength);
-  const emptyLength = barLength - filledLength;
-  
-  const bar = '█'.repeat(filledLength) + '░'.repeat(emptyLength);
-  const color = percentage >= 90 ? '[Red]' : percentage >= 80 ? '[Yellow]' : '[Green]';
+  const color = stats.percentageUsed >= 90 ? '[Red]' : stats.percentageUsed >= 80 ? '[Yellow]' : '[Green]';
   
   console.log(`${color} Token Usage:`);
-  console.log(`   [${bar}] ${percentage.toFixed(1)}%`);
-  console.log(`   ${viz.currentTokens.toLocaleString()} / ${viz.maxTokens.toLocaleString()} tokens\n`);
+  console.log(`   [${bar}] ${stats.percentageUsed.toFixed(1)}%`);
+  console.log(`   ${stats.tokensUsed.toLocaleString()} / ${stats.tokensMax.toLocaleString()} tokens\n`);
+
+  console.log('[Gauge] Token warnings:');
+  console.log(`   ${formatTokenWarningState(tokenWarning).replace(/\n/g, ' ')}`);
+  if (tokenWarning.shouldCompact) {
+    console.log('   [Warn] Compaction suggested to preserve conversation continuity.\n');
+  }
   
   // Message breakdown
   console.log('[Chart] Message Breakdown:');
-  console.log(`   Total messages:   ${viz.messageCount}`);
-  console.log(`   User messages:    ${viz.userMessages}`);
-  console.log(`   Assistant msgs:   ${viz.assistantMessages}`);
-  console.log(`   System messages:  ${viz.systemMessages}`);
-  console.log(`   Tool calls:       ${viz.toolMessages}\n`);
+  console.log(`   Total messages:   ${stats.totalMessages}`);
+  console.log(`   User messages:    ${stats.userMessages}`);
+  console.log(`   Assistant msgs:   ${stats.assistantMessages}`);
+  console.log(`   System messages:  ${stats.systemMessages}`);
+  console.log(`   Tool calls:       ${stats.toolMessages}\n`);
+
+  console.log('[Gauge] Token warning state:');
+  console.log(`   ${formatTokenWarningState(tokenWarning)}`);
+  if (tokenWarning.shouldCompact) {
+    console.log('   [Warn] Compaction suggested to preserve conversation continuity.\n');
+  }
   
   // Recommendations
-  if (viz.needsCompaction) {
+  if (stats.needsCompaction) {
     console.log('Warning:  COMPACTION RECOMMENDED');
     console.log('   Your context window is getting full.');
     console.log('   Run /compact to summarize and free up space.\n');
@@ -82,7 +82,7 @@ export async function cmdContext(options: ContextCommandOptions = {}): Promise<v
   
   // Detailed message list
   if (options.detailed) {
-    printDetailedMessages(viz);
+    printDetailedMessages(contextManager);
   } else {
     console.log('[Idea] Tip: Use /context --detailed to see full message history\n');
   }
@@ -93,14 +93,15 @@ export async function cmdContext(options: ContextCommandOptions = {}): Promise<v
 /**
  * Print detailed message history
  */
-function printDetailedMessages(viz: ReturnType<ContextManager['visualize']>): void {
+function printDetailedMessages(contextManager: ContextManager): void {
   console.log('───────────────────────────────────────────────────────────');
   console.log('[SCROLL] MESSAGE HISTORY');
   console.log('───────────────────────────────────────────────────────────\n');
   
-  // This would show actual messages in real implementation
-  console.log('(Message history visualization would appear here)');
-  console.log('Each message with role, timestamp, and token count\n');
+  const stats = contextManager.getStats();
+  console.log(`Messages tracked: ${stats.totalMessages}`);
+  console.log(`Tokens used: ${stats.tokensUsed}`);
+  console.log('Each message with role, timestamp, and token count would appear here.\n');
 }
 
 /**
@@ -154,10 +155,11 @@ EXAMPLES:
   # Inspect specific session
   /context --session abc123
 
-FEATURES:
+  FEATURES:
   [OK] Visual token usage bar
   [OK] Message count breakdown
   [OK] Compaction recommendations
+  [OK] Token warning thresholds
   [OK] Model context limits reference
   [OK] Per-message token counts (with --detailed)
 

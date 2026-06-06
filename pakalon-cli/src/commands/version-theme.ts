@@ -83,7 +83,7 @@ export interface Theme {
   colors: ThemeColors;
 }
 
-const THEMES: Record<string, Theme> = {
+export const THEMES: Record<string, Theme> = {
   default: {
     name: "Default",
     description: "Classic terminal colors",

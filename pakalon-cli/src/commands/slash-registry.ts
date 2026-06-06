@@ -62,6 +62,8 @@ export const SLASH_COMMANDS: SlashCommandEntry[] = [
   { name: "undo", description: "Show or apply undo operations", category: "session", usage: "/undo [all]" },
   { name: "rewind", description: "Restore a checkpoint from previous updates", category: "session", usage: "/rewind [checkpoint]" },
   { name: "cost", description: "Show token and spend estimates", category: "session", usage: "/cost" },
+  { name: "cost-threshold", description: "Set or view the session cost threshold", category: "session", usage: "/cost-threshold [view|set <usd>|clear|mode <warn|confirm|pause>]" },
+  { name: "token-warning", description: "Configure token usage warning thresholds", category: "session", usage: "/token-warning [view|set <notice> <warning> <critical> <compact>|enable|disable|reset]", aliases: ["token-limit", "token-warning-levels"] },
   { name: "autocompact", description: "Configure automatic context compaction", category: "session", usage: "/autocompact [on|off|threshold <pct>]" },
   { name: "exit", description: "Exit the CLI", category: "session", usage: "/exit", aliases: ["q"] },
 
