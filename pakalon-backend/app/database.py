@@ -287,6 +287,18 @@ async def initialize_database_if_needed() -> None:
                 await conn.execute(sa.text(ddl))
                 user_columns.add(col_name)
 
+        model_usage_columns = set()
+        model_usage_columns_result = await conn.execute(sa.text("PRAGMA table_info(model_usage);"))
+        for row in model_usage_columns_result:
+            model_usage_columns.add(row[1])
+        missing_model_usage_columns = {
+            "cost_usd": "ALTER TABLE model_usage ADD COLUMN cost_usd FLOAT NOT NULL DEFAULT 0.0;",
+        }
+        for col_name, ddl in missing_model_usage_columns.items():
+            if col_name not in model_usage_columns:
+                await conn.execute(sa.text(ddl))
+                model_usage_columns.add(col_name)
+
         if "webhook_id" in existing_columns:
             unique_index_result = await conn.execute(
                 sa.text(

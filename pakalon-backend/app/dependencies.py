@@ -11,6 +11,9 @@ from app.database import get_session
 
 logger = logging.getLogger(__name__)
 
+# Alias for routers that expect get_db — delegates to get_session
+get_db = get_session
+
 
 def _ensure_utc(value: datetime) -> datetime:
     """Normalize DB datetimes so SQLite tests and Postgres behave consistently."""
@@ -185,10 +188,11 @@ async def get_supabase_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     token = credentials.credentials
+    import jwt as pyjwt  # noqa: PLC0415
+
     try:
-        from app.config import get_settings  # noqa: PLC0415
-        import jwt as pyjwt  # noqa: PLC0415
         import base64  # noqa: PLC0415
+        from app.config import get_settings  # noqa: PLC0415
 
         settings = get_settings()
 
