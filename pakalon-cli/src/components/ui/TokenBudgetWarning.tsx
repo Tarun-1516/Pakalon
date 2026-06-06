@@ -5,6 +5,16 @@
 
 import React from "react";
 import { Box, Text } from "ink";
+import {
+  formatCostThresholdState,
+  getCostThresholdSettings,
+  getCostThresholdState,
+} from "@/services/cost-threshold.js";
+import {
+  calculateTokenWarning,
+  formatTokenWarningState,
+  getTokenWarningSettings,
+} from "@/services/token-warning.js";
 
 export interface TokenBudgetWarningProps {
   /** Tokens already used in this session. */
@@ -15,6 +25,8 @@ export interface TokenBudgetWarningProps {
   spendUsd?: number;
   /** Optional: max USD spend budget. */
   maxBudgetUsd?: number;
+  /** Optional: stable session id used for per-session token tracking. */
+  sessionId?: string;
 }
 
 interface WarningLevel {
@@ -70,14 +82,29 @@ const TokenBudgetWarning: React.FC<TokenBudgetWarningProps> = ({
   contextLimit,
   spendUsd,
   maxBudgetUsd,
+  sessionId,
 }) => {
   const contextWarning = getWarningLevel(tokensUsed, contextLimit);
   const budgetWarning =
     maxBudgetUsd !== undefined && spendUsd !== undefined && maxBudgetUsd > 0
       ? spendUsd / maxBudgetUsd >= 0.90
       : false;
+  const costThresholdState =
+    spendUsd !== undefined
+      ? getCostThresholdState(spendUsd, getCostThresholdSettings())
+      : null;
+  const thresholdWarning =
+    costThresholdState?.enabled &&
+    (costThresholdState.level === "approaching" || costThresholdState.level === "exceeded");
+  const tokenWarningState = calculateTokenWarning(
+    tokensUsed,
+    contextLimit,
+    sessionId,
+    getTokenWarningSettings(),
+  );
+  const showTokenWarning = tokenWarningState.level !== "ok" || tokenWarningState.shouldCompact;
 
-  if (!contextWarning && !budgetWarning) return null;
+  if (!contextWarning && !budgetWarning && !thresholdWarning && !showTokenWarning) return null;
 
   const pct = contextLimit > 0 ? Math.round((tokensUsed / contextLimit) * 100) : 0;
 
@@ -103,6 +130,28 @@ const TokenBudgetWarning: React.FC<TokenBudgetWarningProps> = ({
           <Text> </Text>
           <Text color="red">
             Spend budget {Math.round((spendUsd / maxBudgetUsd) * 100)}% used (${spendUsd.toFixed(4)} / ${maxBudgetUsd.toFixed(2)}).
+          </Text>
+        </Box>
+      )}
+      {thresholdWarning && costThresholdState && (
+        <Box>
+          <Text color={costThresholdState.level === "exceeded" ? "red" : "yellow"} bold>
+            [COST]
+          </Text>
+          <Text> </Text>
+          <Text color={costThresholdState.level === "exceeded" ? "red" : "yellow"}>
+            {formatCostThresholdState(costThresholdState)}
+          </Text>
+        </Box>
+      )}
+      {showTokenWarning && (
+        <Box>
+          <Text color={tokenWarningState.level === "critical" ? "red" : tokenWarningState.level === "warning" ? "yellow" : "cyan"} bold>
+            [TOKENS]
+          </Text>
+          <Text> </Text>
+          <Text color={tokenWarningState.level === "critical" ? "red" : tokenWarningState.level === "warning" ? "yellow" : "cyan"}>
+            {formatTokenWarningState(tokenWarningState)}
           </Text>
         </Box>
       )}

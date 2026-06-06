@@ -194,6 +194,12 @@ import {
 import TokenBudgetWarning from "@/components/ui/TokenBudgetWarning.js";
 import { SessionCostTracker } from "@/utils/cost-estimate.js";
 import {
+  consumeCostThresholdContinuation,
+  formatCostThresholdState,
+  getCostThresholdState,
+} from "@/services/cost-threshold.js";
+import { calculateTokenWarning, getTokenWarningSettings } from "@/services/token-warning.js";
+import {
   discoverSkillCatalog,
   findSkillCatalogEntry,
   type SkillCatalogEntry,
@@ -737,6 +743,16 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
     sessionContextLimit,
     sessionTokensUsed,
   ]);
+  const tokenWarningState = useMemo(
+    () =>
+      calculateTokenWarning(
+        displayedContextTokens,
+        sessionContextLimit,
+        activeSessionId ?? undefined,
+        getTokenWarningSettings(),
+      ),
+    [activeSessionId, displayedContextTokens, sessionContextLimit],
+  );
 
   const recordTurnUsage = useCallback(
     (
@@ -1589,6 +1605,18 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
           `[NoEntry] Spend budget of $${maxBudgetUsd?.toFixed(2)} USD reached ($${sessionSpendUsd.toFixed(4)} used). Use --max-budget-usd to set a higher limit.`,
         );
         return;
+      }
+
+      const costThresholdState = getCostThresholdState(sessionSpendUsd);
+      if (costThresholdState.blocksContinuation) {
+        if (consumeCostThresholdContinuation()) {
+          info(`${formatCostThresholdState(costThresholdState)}\n\nContinuing once on your confirmation.`);
+        } else {
+          info(
+            `${formatCostThresholdState(costThresholdState)}\n\nUse /cost-threshold continue to proceed once, or /cost-threshold mode warn to keep going without blocking.`,
+          );
+          return;
+        }
       }
 
       // T-CLI-CREDITS: Block interaction when credit balance is fully exhausted.
@@ -6314,14 +6342,13 @@ After writing the file, summarize the key points here in the chat.`;
         </Box>
       ) : null}
       {/* T3-15: Token budget & spend warnings */}
-      {!selfHostedMode && (
-        <TokenBudgetWarning
-          tokensUsed={sessionTokensUsed}
-          contextLimit={sessionContextLimit}
-          spendUsd={sessionSpendUsd}
-          maxBudgetUsd={maxBudgetUsd}
-        />
-      )}
+      <TokenBudgetWarning
+        tokensUsed={sessionTokensUsed}
+        contextLimit={sessionContextLimit}
+        spendUsd={sessionSpendUsd}
+        maxBudgetUsd={maxBudgetUsd}
+        sessionId={activeSessionId ?? undefined}
+      />
       <PermissionDialog
         onDismiss={() => setPermissionInputPending(permissionGate.hasPending)}
       />
@@ -6649,6 +6676,24 @@ After writing the file, summarize the key points here in the chat.`;
           linesDeleted={sessionLinesDeleted}
         />
       )}
+      {tokenWarningState.level !== "ok" || tokenWarningState.shouldCompact ? (
+        <Box paddingX={1}>
+          <Text
+            color={
+              tokenWarningState.level === "critical"
+                ? "red"
+                : tokenWarningState.level === "warning"
+                  ? "yellow"
+                  : "cyan"
+            }
+          >
+            {tokenWarningState.message}
+          </Text>
+          {tokenWarningState.shouldCompact ? (
+            <Text color="yellow"> • {tokenWarningState.compactMessage ?? "Compaction recommended."}</Text>
+          ) : null}
+        </Box>
+      ) : null}
       <WorkingStatus active={aiBusy} />
       <InputBar
         onSubmit={handleSubmit}
